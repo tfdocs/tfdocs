@@ -3,6 +3,7 @@
   "displayName": "terraform-docs-navigator",
   "description": "Look up definitions of Terraform resources in your browser",
   "version": "0.0.1",
+  "publisher": "jeremyoverman",
   "author": {
     "name": "Jeremy Overman",
     "email": "jeremyoverman@gmail.com",
@@ -36,7 +37,8 @@
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
     "test": "vscode-test",
-    "package": "vsce package --allow-missing-repository",
+    "package": "vsce package",
+    "publish": "vsce publish",
     "install": "code --install-extension terraform-docs-navigator-0.0.1.vsix"
   },
   "devDependencies": {
