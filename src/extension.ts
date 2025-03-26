@@ -42,9 +42,6 @@ async function getModuleData(document: vscode.TextDocument, position: vscode.Pos
   const line = document.lineAt(position.line).text;
   const match = MODULE_REGEX.exec(line);
   
-  console.log('line', line);
-  console.log('match', match);
-  
   if (!match) {
     return undefined;
   }
@@ -63,8 +60,15 @@ async function getModuleData(document: vscode.TextDocument, position: vscode.Pos
     };
   }
 
-  if (source.startsWith('.')) {
-    const modulePath = path.join(document.uri.path, '..', source);
+  if (source.startsWith('.') || source.startsWith('/')) {
+    let modulePath: string | undefined = undefined;
+
+    if (source.startsWith('/')) {
+      modulePath = source;
+    } else {
+      modulePath = path.join(document.uri.path, '..', source);
+    }
+
     const mainFile = await findMainFileInDir(modulePath);
     
     if (!mainFile) {
