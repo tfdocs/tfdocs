@@ -3,6 +3,14 @@
   "displayName": "terraform-docs-navigator",
   "description": "Look up definitions of Terraform resources in your browser",
   "version": "0.0.1",
+  "author": {
+    "name": "Jeremy Overman",
+    "email": "jeremyoverman@gmail.com",
+    "url": "https://jeremyoverman.net"
+  },
+  "repository": {
+    "url": "https://github.com/jeremyoverman/terraform-docs-navigator"
+  },
   "engines": {
     "vscode": "^1.98.0"
   },
