@@ -2,11 +2,19 @@
   "name": "terraform-docs-navigator",
   "displayName": "Terraform Docs Navigator",
   "description": "Look up definitions of Terraform resources in your browser",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "jeremyoverman",
   "icon": "images/icon.png",
   "license": "MIT",
-  "keywords": ["terraform", "documentation", "docs", "definitions", "resource", "module", "registry"],
+  "keywords": [
+    "terraform",
+    "documentation",
+    "docs",
+    "definitions",
+    "resource",
+    "module",
+    "registry"
+  ],
   "bugs": {
     "url": "https://github.com/jeremyoverman/terraform-docs-navigator/issues"
   },
