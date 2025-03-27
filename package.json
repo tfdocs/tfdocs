@@ -20,7 +20,7 @@
   },
   "galleryBanner": {
     "color": "#7B42BC",
-    "theme": "light"
+    "theme": "dark"
   },
   "author": {
     "name": "Jeremy Overman",
@@ -58,7 +58,7 @@
     "test": "vscode-test",
     "package": "vsce package",
     "publish": "vsce publish",
-    "install": "code --install-extension terraform-docs-navigator-0.0.1.vsix"
+    "install": "code --install-extension terraform-docs-navigator-*.vsix"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
