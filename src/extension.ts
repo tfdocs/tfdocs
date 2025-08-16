@@ -1,8 +1,10 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import fs from 'fs';
 import { getResourceSlug } from './registry';
 import { findMainFileInDir } from './filesystem';
 import { getAttribute, getProviderSources } from './terraform';
+import { parseTerraformLockFile } from './terraform-lock-parser';
 
 type URLAction = {
   type: 'url',
@@ -31,10 +33,45 @@ async function getResourceData(document: vscode.TextDocument, position: vscode.P
   const providerNamespaces = await getProviderSources(document);
   const namespace = providerNamespaces[match[2]]?.split('/')[0] ?? 'hashicorp';
   const slug = await getResourceSlug(`${namespace}/${match[2]}`, match[3]);
+  const documentPath = document.fileName.split(path.sep).slice(0, -1).join(path.sep);
+  let providerVersion = "latest";
+
+  const lockFilePath = `${documentPath}/.terraform.lock.hcl`;
+  
+  if (!fs.existsSync(lockFilePath)) {
+    // Get configuration for Terraform or OpenTofu
+    const config = vscode.workspace.getConfiguration('tfdocs');
+    const initTool = config.get<string>('initTool', 'terraform');
+    const toolName = initTool === 'tofu' ? 'OpenTofu' : 'Terraform';
+    const toolCommand = initTool === 'tofu' ? 'tofu' : 'terraform';
+    
+    const action = await vscode.window.showWarningMessage(
+      `No .terraform.lock.hcl file found. This might indicate that ${toolName} has not been initialized.`,
+      `Run ${toolCommand} init`,
+      'Cancel'
+    );
+    
+    if (action === `Run ${toolCommand} init`) {
+      const terminal = vscode.window.createTerminal({
+        name: `${toolName} Init`,
+        cwd: documentPath
+      });
+      terminal.sendText(`${toolCommand} init`);
+      terminal.show();
+    }
+  } else {
+    try {
+      const terraformLockFile = fs.readFileSync(lockFilePath, 'utf-8');
+      providerVersion = parseTerraformLockFile(terraformLockFile).providers.get(`${namespace}/${match[2]}`)?.version || "latest";
+    } catch (error) {
+      console.warn('Unable to read .terraform.lock.hcl file:', lockFilePath);
+      console.warn('Using latest version for resource lookup');
+    }
+  }
 
   return {
     type: 'url',
-    url: `https://registry.terraform.io/providers/${namespace}/${match[2]}/latest/docs/${resourceType}/${slug}`,
+    url: `https://registry.terraform.io/providers/${namespace}/${match[2]}/${providerVersion}/docs/${resourceType}/${slug}`,
   };
 }
 
@@ -112,7 +149,7 @@ async function getLineData(document: vscode.TextDocument, position: vscode.Posit
 }
 
 export async function activate(context: vscode.ExtensionContext) {
-  const lookupCommand = vscode.commands.registerCommand('terraform-docs-navigator.lookupResource', async () => {
+  const lookupCommand = vscode.commands.registerCommand('tfdocs.lookupResource', async () => {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
       return;
@@ -141,7 +178,7 @@ export async function activate(context: vscode.ExtensionContext) {
   
   const definitionProvider: vscode.DefinitionProvider = {
     async provideDefinition() {
-      const result = await vscode.commands.executeCommand('terraform-docs-navigator.lookupResource');
+      const result = await vscode.commands.executeCommand('tfdocs.lookupResource');
       
       if (result) {
         return [];
