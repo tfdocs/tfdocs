@@ -1,9 +1,9 @@
 {
-  "name": "terraform-docs-navigator",
-  "displayName": "Terraform Docs Navigator",
+  "name": "tfdocs-code",
+  "displayName": "tfdocs",
   "description": "Look up definitions of Terraform resources in your browser",
-  "version": "0.0.2",
-  "publisher": "jeremyoverman",
+  "version": "1.0.0",
+  "publisher": "tfdocs",
   "icon": "images/icon.png",
   "license": "MIT",
   "keywords": [
@@ -16,20 +16,18 @@
     "registry"
   ],
   "bugs": {
-    "url": "https://github.com/jeremyoverman/terraform-docs-navigator/issues"
+    "url": "https://github.com/MattFelice/tfdocs/issues"
   },
   "galleryBanner": {
-    "color": "#7B42BC",
+    "color": "#56288e",
     "theme": "dark"
   },
   "author": {
-    "name": "Jeremy Overman",
-    "email": "jeremyoverman@gmail.com",
-    "url": "https://jeremyoverman.net"
+    "name": "Matt Felice"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/jeremyoverman/terraform-docs-navigator"
+    "url": "https://github.com/MattFelice/tfdocs"
   },
   "engines": {
     "vscode": "^1.98.0"
@@ -44,10 +42,28 @@
   "contributes": {
     "commands": [
       {
-        "command": "terraform-docs-navigator.lookupResource",
+        "command": "tfdocs.lookupResource",
         "title": "Look up Terraform resource"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "tfdocs",
+      "properties": {
+        "tfdocs.initTool": {
+          "type": "string",
+          "default": "terraform",
+          "enum": [
+            "terraform",
+            "tofu"
+          ],
+          "enumDescriptions": [
+            "Use Terraform for initialization",
+            "Use OpenTofu for initialization"
+          ],
+          "description": "Specify which tool to use for initialization when .terraform.lock.hcl is missing"
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
@@ -58,7 +74,7 @@
     "test": "vscode-test",
     "package": "vsce package",
     "publish": "vsce publish",
-    "install": "code --install-extension terraform-docs-navigator-*.vsix"
+    "vsce": "vsce"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
