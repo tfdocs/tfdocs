@@ -11,6 +11,9 @@ import { waitForProcess, runTerraformInit } from './terraform-init';
 import { updateDiagnostics } from './diagnostics';
 import { stripAnsiCodes, convertAnsiToVSCode } from './text-formatter';
 
+// Track if the init notification has already been shown this session
+let initNotificationShown = false;
+
 async function getResourceData(
   document: vscode.TextDocument,
   position: vscode.Position
@@ -39,6 +42,11 @@ async function getResourceData(
   const lockFilePath = `${fullPath}/.terraform.lock.hcl`;
 
   if (!fs.existsSync(lockFilePath)) {
+    // If notification has already been shown this session, don't show it again
+    if (initNotificationShown) {
+      return undefined;
+    }
+
     // Get configuration for Terraform or OpenTofu
     const config = vscode.workspace.getConfiguration('tfdocs');
     const initTool = config.get<string>('initTool', 'terraform');
@@ -46,6 +54,9 @@ async function getResourceData(
     const toolName = initTool === 'tofu' ? 'OpenTofu' : 'Terraform';
     const toolCommand = initTool === 'tofu' ? 'tofu' : 'terraform';
     const colorFlag = enableColorizer ? '' : ' -no-color';
+
+    // Mark that we're about to show the notification
+    initNotificationShown = true;
 
     const action = await vscode.window.showWarningMessage(
       `No .terraform.lock.hcl file found. This might indicate that ${toolName} has not been initialized.`,
