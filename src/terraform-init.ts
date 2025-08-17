@@ -3,6 +3,7 @@ import * as path from 'path';
 import fs from 'fs';
 import { execSync } from 'child_process';
 import { stripAnsiCodes, convertAnsiToVSCode } from './text-formatter';
+import { toolName, toolCommand, colorFlag, enableColorizer } from './config';
 
 async function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -120,14 +121,7 @@ export async function runTerraformInit(
     .slice(0, -1)
     .join(path.sep);
 
-  // Get configuration for Terraform or OpenTofu
-  const config = vscode.workspace.getConfiguration('tfdocs');
-  const initTool = config.get<string>('initTool', 'terraform');
-  const enableColorizer = config.get<boolean>('enableColorizer', false);
-  const toolName = initTool === 'tofu' ? 'OpenTofu' : 'Terraform';
-  const toolCommand = initTool === 'tofu' ? 'tofu' : 'terraform';
-  const colorFlag = enableColorizer ? '' : ' -no-color';
-
+  // Get configuration from config module
   const outputWindow = vscode.window.createOutputChannel(`${toolName} Init`);
   outputWindow.show();
   outputWindow.appendLine(

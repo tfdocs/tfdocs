@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import fs from 'fs';
 import { RESOURCE_REGEX, MODULE_REGEX } from './types';
+import { toolCommand } from './config';
 
 let diagnosticCollection: vscode.DiagnosticCollection;
 
@@ -47,7 +48,7 @@ export function checkForMissingLockFile(
 
       const diagnostic = new vscode.Diagnostic(
         range,
-        'No .terraform.lock.hcl file found. Consider running terraform init.',
+        `No .terraform.lock.hcl file found. Consider running ${toolCommand} init.`,
         vscode.DiagnosticSeverity.Warning
       );
       diagnostic.code = 'tfdocs.missing-lock-file';
@@ -65,7 +66,7 @@ export function checkForMissingLockFile(
 
       const diagnostic = new vscode.Diagnostic(
         range,
-        'No .terraform.lock.hcl file found. Consider running terraform init.',
+        `No .terraform.lock.hcl file found. Consider running ${toolCommand} init.`,
         vscode.DiagnosticSeverity.Warning
       );
       diagnostic.code = 'tfdocs.missing-lock-file';

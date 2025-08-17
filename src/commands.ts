@@ -10,6 +10,7 @@ import { Action, RESOURCE_REGEX, MODULE_REGEX } from './types';
 import { waitForProcess, runTerraformInit } from './terraform-init';
 import { updateDiagnostics } from './diagnostics';
 import { stripAnsiCodes, convertAnsiToVSCode } from './text-formatter';
+import { toolName, toolCommand, colorFlag, enableColorizer } from './config';
 
 // Track if the init notification has already been shown this session
 let initNotificationShown = false;
@@ -43,14 +44,6 @@ async function getResourceData(
 
   if (!fs.existsSync(lockFilePath)) {
     // If notification has already been shown this session, don't show it again
-
-    // Get configuration for Terraform or OpenTofu
-    const config = vscode.workspace.getConfiguration('tfdocs');
-    const initTool = config.get<string>('initTool', 'terraform');
-    const enableColorizer = config.get<boolean>('enableColorizer', false);
-    const toolName = initTool === 'tofu' ? 'OpenTofu' : 'Terraform';
-    const toolCommand = initTool === 'tofu' ? 'tofu' : 'terraform';
-    const colorFlag = enableColorizer ? '' : ' -no-color';
 
     // Mark that we're about to show the notification
 
@@ -156,13 +149,21 @@ async function getResourceData(
   } catch (error) {
     console.warn('Unable to read .terraform.lock.hcl file:', lockFilePath);
     console.warn('Using latest version for resource lookup');
+    providerVersion = 'latest';
   }
 
   initNotificationShown = true;
+  const url = `https://registry.terraform.io/providers/${namespace}/${match[2]}/${providerVersion}/docs/${resourceType}/${slug}`;
+
+  console.debug('Using provider version:', providerVersion);
+  console.debug('Using namespace:', namespace);
+  console.debug('Using resource type:', resourceType);
+  console.debug('Using slug:', slug);
+  console.debug('Using URL:', url);
 
   return {
     type: 'url',
-    url: `https://registry.terraform.io/providers/${namespace}/${match[2]}/${providerVersion}/docs/${resourceType}/${slug}`,
+    url: url,
   };
 }
 
@@ -280,6 +281,7 @@ export function registerCommands(context: vscode.ExtensionContext): void {
       }
 
       if (action.type === 'url') {
+        console.debug('Opening URL:', action.url);
         vscode.env.openExternal(vscode.Uri.parse(action.url));
       } else if (action.type === 'navigate') {
         const doc = await vscode.workspace.openTextDocument(action.filePath);
@@ -294,9 +296,10 @@ export function registerCommands(context: vscode.ExtensionContext): void {
     'tfdocs.openUrl',
     async (uri: vscode.Uri, position: vscode.Position) => {
       const document = await vscode.workspace.openTextDocument(uri);
-      const action = await getLineData(document, position);
+      const action = await getResourceData(document, position);
 
       if (action && action.type === 'url') {
+        console.debug('Opening URL:', action.url);
         vscode.env.openExternal(vscode.Uri.parse(action.url));
       }
     }

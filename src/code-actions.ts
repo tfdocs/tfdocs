@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { toolCommand } from './config';
 
 export class TerraformInitCodeActionProvider
   implements vscode.CodeActionProvider
@@ -19,11 +20,6 @@ export class TerraformInitCodeActionProvider
     );
 
     if (relevantDiagnostics.length > 0) {
-      const config = vscode.workspace.getConfiguration('tfdocs');
-      const initTool = config.get<string>('initTool', 'terraform');
-      const toolName = initTool === 'tofu' ? 'OpenTofu' : 'Terraform';
-      const toolCommand = initTool === 'tofu' ? 'tofu' : 'terraform';
-
       const action = new vscode.CodeAction(
         `Run ${toolCommand} init`,
         vscode.CodeActionKind.QuickFix
