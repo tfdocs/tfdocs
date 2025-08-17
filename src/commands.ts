@@ -9,6 +9,7 @@ import { execSync } from 'child_process';
 import { Action, RESOURCE_REGEX, MODULE_REGEX } from './types';
 import { waitForProcess, runTerraformInit } from './terraform-init';
 import { updateDiagnostics } from './diagnostics';
+import { stripAnsiCodes, convertAnsiToVSCode } from './text-formatter';
 
 async function getResourceData(
   document: vscode.TextDocument,
@@ -41,8 +42,10 @@ async function getResourceData(
     // Get configuration for Terraform or OpenTofu
     const config = vscode.workspace.getConfiguration('tfdocs');
     const initTool = config.get<string>('initTool', 'terraform');
+    const enableColorizer = config.get<boolean>('enableColorizer', false);
     const toolName = initTool === 'tofu' ? 'OpenTofu' : 'Terraform';
     const toolCommand = initTool === 'tofu' ? 'tofu' : 'terraform';
+    const colorFlag = enableColorizer ? '' : ' -no-color';
 
     const action = await vscode.window.showWarningMessage(
       `No .terraform.lock.hcl file found. This might indicate that ${toolName} has not been initialized.`,
@@ -56,7 +59,7 @@ async function getResourceData(
       );
       outputWindow.show();
       outputWindow.appendLine(
-        `Running ${toolCommand} init -input=false -no-color in ${fullPath}`
+        `Running ${toolCommand} init -input=false${colorFlag} in ${fullPath}`
       );
 
       const terminal = vscode.window.createTerminal({
@@ -70,17 +73,17 @@ async function getResourceData(
       execSync(`rm ${logFile} || true`);
 
       terminal.sendText(
-        `mkdir -p .terraform/logs && ${toolCommand} init -input=false -no-color > .terraform/logs/${logFilename}`,
+        `mkdir -p .terraform/logs && ${toolCommand} init -input=false${colorFlag} > .terraform/logs/${logFilename}`,
         true
       );
       
       try {
-        await waitForProcess(logFile, outputWindow);
+        await waitForProcess(logFile, outputWindow, enableColorizer, toolCommand);
         
         // Check if initialization was successful by reading the log
         let initSucceeded = false;
         try {
-          const logContent = fs.readFileSync(logFile, 'utf-8');
+          const logContent = stripAnsiCodes(fs.readFileSync(logFile, 'utf-8'));
           if (
             logContent.includes('Terraform has been successfully initialized') ||
             logContent.includes('OpenTofu has been successfully initialized')
