@@ -43,9 +43,6 @@ async function getResourceData(
 
   if (!fs.existsSync(lockFilePath)) {
     // If notification has already been shown this session, don't show it again
-    if (initNotificationShown) {
-      return undefined;
-    }
 
     // Get configuration for Terraform or OpenTofu
     const config = vscode.workspace.getConfiguration('tfdocs');
@@ -56,9 +53,9 @@ async function getResourceData(
     const colorFlag = enableColorizer ? '' : ' -no-color';
 
     // Mark that we're about to show the notification
-    initNotificationShown = true;
 
-    const action = await vscode.window.showWarningMessage(
+    if (!initNotificationShown) {
+      const action = await vscode.window.showWarningMessage(
       `No .terraform.lock.hcl file found. This might indicate that ${toolName} has not been initialized.`,
       `Run ${toolCommand} init`,
       'Cancel'
@@ -137,9 +134,8 @@ async function getResourceData(
           return undefined; // Don't proceed with resource lookup if init failed
         }
       });
-    } else {
-      // User cancelled the init, don't proceed with resource lookup
-      return undefined;
+    }
+    
     }
   }
 
@@ -153,6 +149,9 @@ async function getResourceData(
     console.warn('Unable to read .terraform.lock.hcl file:', lockFilePath);
     console.warn('Using latest version for resource lookup');
   }
+
+  initNotificationShown = true;
+
 
   return {
     type: 'url',
