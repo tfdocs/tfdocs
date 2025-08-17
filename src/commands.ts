@@ -329,10 +329,38 @@ export function registerCommands(context: vscode.ExtensionContext): void {
         ) {
           const action = await getResourceData(document, position);
           if (action && action.type === 'url') {
+            // Get provider info for display
+            const providerNamespaces = await getProviderSources(document);
+            const namespace = providerNamespaces[provider]?.split('/')[0] ?? 'hashicorp';
+            
+            // Get provider version from lock file
+            const fullPath = document.fileName.split(path.sep).slice(0, -1).join(path.sep);
+            const lockFilePath = `${fullPath}/.terraform.lock.hcl`;
+            let providerVersion = 'latest';
+            
+            try {
+              if (fs.existsSync(lockFilePath)) {
+                const terraformLockFile = fs.readFileSync(lockFilePath, 'utf-8');
+                const parsedLockFile = parseTerraformLockFile(terraformLockFile);
+                const providerInfo = parsedLockFile.providers.get(`${namespace}/${provider}`);
+                providerVersion = providerInfo?.version || 'latest';
+              }
+            } catch (error) {
+              // Use latest if we can't read the lock file
+            }
+
+            const resourceTypeDisplay = resourceKeyword === 'resource' ? 'Resource' : 'Data Source';
+            
+            let hoverContent = `**${resourceType}**\n\n`;
+            hoverContent += `📋 **Type:** ${resourceTypeDisplay}\n`;
+            hoverContent += `📦 **Provider:** \`${namespace}/${provider}\`\n`;
+            hoverContent += `🏷️ **Version:** \`${providerVersion}\`\n\n`;
+            hoverContent += `---\n\n`;
+            hoverContent += `[📖 Open documentation](${action.url})\n\n`;
+            hoverContent += `*Ctrl+Click to open in browser*`;
+
             return new vscode.Hover(
-              new vscode.MarkdownString(
-                `**${resourceType}**\n\n[📖 Open documentation](${action.url})\n\n*Ctrl+Click to open*`
-              ),
+              new vscode.MarkdownString(hoverContent),
               new vscode.Range(
                 position.line,
                 resourceTypeStart + 1,

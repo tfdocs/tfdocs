@@ -4,7 +4,10 @@ All notable changes to the "tfdocs" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
-## 1.1.1
+## 1.2.0 (August 18, 2025)
+
+New features:
+- **Enhanced Hover Documentation**: Hover tooltips now display provider information including namespace, version from lock file, and resource type details alongside documentation links
 
 Bug fixes:
 - **Fixed Notification Persistence**: Resolved issue where "Run terraform init" warning notification would remain visible during initialization process. Now replaced with progress notification that automatically dismisses when complete.
