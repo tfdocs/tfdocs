@@ -61,6 +61,11 @@
             "Use OpenTofu for initialization"
           ],
           "description": "Specify which tool to use for initialization when .terraform.lock.hcl is missing"
+        },
+        "tfdocs.enableColorizer": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable color output in Terraform/OpenTofu commands (removes -no-color flag)"
         }
       }
     }
