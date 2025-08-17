@@ -16,7 +16,7 @@
     "registry"
   ],
   "bugs": {
-    "url": "https://github.com/MattFelice/tfdocs/issues"
+    "url": "https://github.com/tfdocs/tfdocs/issues"
   },
   "galleryBanner": {
     "color": "#56288e",
@@ -27,7 +27,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/MattFelice/tfdocs"
+    "url": "https://github.com/tfdocs/tfdocs"
   },
   "engines": {
     "vscode": "^1.98.0"
