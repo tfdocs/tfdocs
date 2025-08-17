@@ -56,86 +56,94 @@ async function getResourceData(
 
     if (!initNotificationShown) {
       const action = await vscode.window.showWarningMessage(
-      `No .terraform.lock.hcl file found. This might indicate that ${toolName} has not been initialized.`,
-      `Run ${toolCommand} init`,
-      'Cancel'
-    );
+        `No .terraform.lock.hcl file found. This might indicate that ${toolName} has not been initialized.`,
+        `Run ${toolCommand} init`,
+        'Cancel'
+      );
 
-    if (action === `Run ${toolCommand} init`) {
-      // Show progress notification that will replace the warning
-      return vscode.window.withProgress({
-        location: vscode.ProgressLocation.Notification,
-        title: `Running ${toolCommand} init`,
-        cancellable: false
-      }, async (progress) => {
-        const outputWindow = vscode.window.createOutputChannel(
-          `${toolName} Init`
-        );
-        outputWindow.show();
-        outputWindow.appendLine(
-          `Running ${toolCommand} init -input=false${colorFlag} in ${fullPath}`
-        );
+      if (action === `Run ${toolCommand} init`) {
+        // Show progress notification that will replace the warning
+        return vscode.window.withProgress(
+          {
+            location: vscode.ProgressLocation.Notification,
+            title: `Running ${toolCommand} init`,
+            cancellable: false,
+          },
+          async progress => {
+            const outputWindow = vscode.window.createOutputChannel(
+              `${toolName} Init`
+            );
+            outputWindow.show();
+            outputWindow.appendLine(
+              `Running ${toolCommand} init -input=false${colorFlag} in ${fullPath}`
+            );
 
-        const terminal = vscode.window.createTerminal({
-          name: `${toolName} Init`,
-          cwd: fullPath,
-          hideFromUser: true,
-        });
+            const terminal = vscode.window.createTerminal({
+              name: `${toolName} Init`,
+              cwd: fullPath,
+              hideFromUser: true,
+            });
 
-        const logFilename = `${toolCommand}-init.log`;
-        const logFile = `${fullPath}/.terraform/logs/${logFilename}`;
-        execSync(`rm ${logFile} || true`);
+            const logFilename = `${toolCommand}-init.log`;
+            const logFile = `${fullPath}/.terraform/logs/${logFilename}`;
+            execSync(`rm ${logFile} || true`);
 
-        terminal.sendText(
-          `mkdir -p .terraform/logs && ${toolCommand} init -input=false${colorFlag} > .terraform/logs/${logFilename}`,
-          true
-        );
-        
-        progress.report({ message: 'Initializing...' });
+            terminal.sendText(
+              `mkdir -p .terraform/logs && ${toolCommand} init -input=false${colorFlag} > .terraform/logs/${logFilename}`,
+              true
+            );
 
-        try {
-          await waitForProcess(
-            logFile,
-            outputWindow,
-            enableColorizer,
-            toolCommand
-          );
+            progress.report({ message: 'Initializing...' });
 
-          // Check if initialization was successful by reading the log
-          let initSucceeded = false;
-          try {
-            const logContent = stripAnsiCodes(fs.readFileSync(logFile, 'utf-8'));
-            if (
-              logContent.includes(
-                'Terraform has been successfully initialized'
-              ) ||
-              logContent.includes('OpenTofu has been successfully initialized')
-            ) {
-              initSucceeded = true;
-              progress.report({ message: 'Completed successfully!' });
+            try {
+              await waitForProcess(
+                logFile,
+                outputWindow,
+                enableColorizer,
+                toolCommand
+              );
+
+              // Check if initialization was successful by reading the log
+              let initSucceeded = false;
+              try {
+                const logContent = stripAnsiCodes(
+                  fs.readFileSync(logFile, 'utf-8')
+                );
+                if (
+                  logContent.includes(
+                    'Terraform has been successfully initialized'
+                  ) ||
+                  logContent.includes(
+                    'OpenTofu has been successfully initialized'
+                  )
+                ) {
+                  initSucceeded = true;
+                  progress.report({ message: 'Completed successfully!' });
+                }
+              } catch (e) {
+                // Could not read log file
+              }
+
+              if (!initSucceeded) {
+                progress.report({
+                  message: 'Failed - check output for details',
+                });
+                return undefined; // Don't proceed with resource lookup if init failed
+              }
+
+              outputWindow.appendLine(`Finished initializing`);
+
+              // Check if the lock file was created after initialization
+              if (!fs.existsSync(lockFilePath)) {
+                return undefined; // Don't proceed with resource lookup if init failed
+              }
+            } catch (error) {
+              progress.report({ message: 'Failed - check output for details' });
+              return undefined; // Don't proceed with resource lookup if init failed
             }
-          } catch (e) {
-            // Could not read log file
           }
-
-          if (!initSucceeded) {
-            progress.report({ message: 'Failed - check output for details' });
-            return undefined; // Don't proceed with resource lookup if init failed
-          }
-
-          outputWindow.appendLine(`Finished initializing`);
-
-          // Check if the lock file was created after initialization
-          if (!fs.existsSync(lockFilePath)) {
-            return undefined; // Don't proceed with resource lookup if init failed
-          }
-        } catch (error) {
-          progress.report({ message: 'Failed - check output for details' });
-          return undefined; // Don't proceed with resource lookup if init failed
-        }
-      });
-    }
-    
+        );
+      }
     }
   }
 
@@ -151,7 +159,6 @@ async function getResourceData(
   }
 
   initNotificationShown = true;
-
 
   return {
     type: 'url',
