@@ -5,6 +5,8 @@ import { getResourceSlug } from './registry';
 import { findMainFileInDir } from './filesystem';
 import { getAttribute, getProviderSources } from './terraform';
 import { parseTerraformLockFile } from './terraform-lock-parser';
+import * as readline from "readline";
+import { execSync } from 'child_process';
 
 type URLAction = {
   type: 'url',
@@ -33,10 +35,12 @@ async function getResourceData(document: vscode.TextDocument, position: vscode.P
   const providerNamespaces = await getProviderSources(document);
   const namespace = providerNamespaces[match[2]]?.split('/')[0] ?? 'hashicorp';
   const slug = await getResourceSlug(`${namespace}/${match[2]}`, match[3]);
-  const documentPath = document.fileName.split(path.sep).slice(0, -1).join(path.sep);
+  const fullPath = document.fileName.split(path.sep).slice(0, -1).join(path.sep);
+  const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
+  const documentPath = workspaceFolder ? path.relative(workspaceFolder.uri.fsPath, fullPath) : fullPath;
   let providerVersion = "latest";
 
-  const lockFilePath = `${documentPath}/.terraform.lock.hcl`;
+  const lockFilePath = `${fullPath}/.terraform.lock.hcl`;
   
   if (!fs.existsSync(lockFilePath)) {
     // Get configuration for Terraform or OpenTofu
@@ -52,14 +56,26 @@ async function getResourceData(document: vscode.TextDocument, position: vscode.P
     );
     
     if (action === `Run ${toolCommand} init`) {
+      const outputWindow = vscode.window.createOutputChannel(`${toolName} Init`);
+      outputWindow.show();
+      outputWindow.appendLine(`Running ${toolCommand} init -input=false -no-color in ${fullPath}`);
+
       const terminal = vscode.window.createTerminal({
         name: `${toolName} Init`,
-        cwd: documentPath
+        cwd: fullPath,
+        hideFromUser: true,
       });
-      terminal.sendText(`${toolCommand} init`);
-      terminal.show();
+
+      const logFilename = `${toolCommand}-init.log`;
+      const logFile = `${fullPath}/.terraform/logs/${logFilename}`
+      execSync(`rm ${logFile} || true`);
+
+      terminal.sendText(`mkdir -p .terraform/logs && ${toolCommand} init -input=false -no-color > .terraform/logs/${logFilename}`, true);
+      await waitForProcess(logFile, outputWindow);
+      outputWindow.appendLine(`Finished initializing`);
     }
-  } else {
+  }
+
     try {
       const terraformLockFile = fs.readFileSync(lockFilePath, 'utf-8');
       providerVersion = parseTerraformLockFile(terraformLockFile).providers.get(`${namespace}/${match[2]}`)?.version || "latest";
@@ -67,7 +83,6 @@ async function getResourceData(document: vscode.TextDocument, position: vscode.P
       console.warn('Unable to read .terraform.lock.hcl file:', lockFilePath);
       console.warn('Using latest version for resource lookup');
     }
-  }
 
   return {
     type: 'url',
@@ -147,6 +162,44 @@ async function getLineData(document: vscode.TextDocument, position: vscode.Posit
 
   return lineData;
 }
+
+async function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function waitForProcess(logFile: string, outputWindow: vscode.OutputChannel): Promise<void> {
+  const lines: string[] = [];
+  let fileHasNewLines = true;
+
+  // go 3 dirs up, then add /.terraform.lock.hcl
+  const lockFile = logFile.split("/").slice(0, -3).join("/") + "/.terraform.lock.hcl";
+
+  while (fileHasNewLines || !fs.existsSync(lockFile)) {
+    await sleep(fileHasNewLines ? 1000 : 5000);
+    fileHasNewLines = false;
+
+    try {
+      const newLines = fs.readFileSync(logFile, "utf-8").split("\n");
+
+      if (newLines.length > lines.length) {
+        fileHasNewLines = true;
+
+        const diff = newLines.slice(lines.length);
+        lines.push(...diff);
+
+        for (const line of diff) {
+          if (line.trim().length > 0) {
+            outputWindow.appendLine(line);
+          }
+        }
+      }
+    } catch (e) {
+      // logFile might not exist yet — ignore
+    }
+
+  }
+}
+
 
 export async function activate(context: vscode.ExtensionContext) {
   const lookupCommand = vscode.commands.registerCommand('tfdocs.lookupResource', async () => {
