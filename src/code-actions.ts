@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
 
-export class TerraformInitCodeActionProvider implements vscode.CodeActionProvider {
+export class TerraformInitCodeActionProvider
+  implements vscode.CodeActionProvider
+{
   provideCodeActions(
     document: vscode.TextDocument,
     range: vscode.Range | vscode.Selection,
@@ -11,7 +13,9 @@ export class TerraformInitCodeActionProvider implements vscode.CodeActionProvide
 
     // Check if there are any diagnostics for missing lock file
     const relevantDiagnostics = context.diagnostics.filter(
-      diagnostic => diagnostic.source === 'tfdocs' && diagnostic.code === 'tfdocs.missing-lock-file'
+      diagnostic =>
+        diagnostic.source === 'tfdocs' &&
+        diagnostic.code === 'tfdocs.missing-lock-file'
     );
 
     if (relevantDiagnostics.length > 0) {
@@ -24,16 +28,16 @@ export class TerraformInitCodeActionProvider implements vscode.CodeActionProvide
         `Run ${toolCommand} init`,
         vscode.CodeActionKind.QuickFix
       );
-      
+
       action.command = {
         title: `Run ${toolCommand} init`,
         command: 'tfdocs.runTerraformInit',
-        arguments: [document]
+        arguments: [document],
       };
-      
+
       action.diagnostics = relevantDiagnostics;
       action.isPreferred = true;
-      
+
       actions.push(action);
     }
 
@@ -41,15 +45,17 @@ export class TerraformInitCodeActionProvider implements vscode.CodeActionProvide
   }
 }
 
-export function registerCodeActionProvider(context: vscode.ExtensionContext): void {
+export function registerCodeActionProvider(
+  context: vscode.ExtensionContext
+): void {
   const codeActionProvider = new TerraformInitCodeActionProvider();
   const codeActionDisposable = vscode.languages.registerCodeActionsProvider(
     { language: 'terraform', scheme: 'file' },
     codeActionProvider,
     {
-      providedCodeActionKinds: [vscode.CodeActionKind.QuickFix]
+      providedCodeActionKinds: [vscode.CodeActionKind.QuickFix],
     }
   );
-  
+
   context.subscriptions.push(codeActionDisposable);
 }

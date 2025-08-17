@@ -5,19 +5,24 @@ import * as readline from 'readline';
 
 import { findMainFileInDir } from './filesystem';
 
-export async function getProviderSources(document: vscode.TextDocument): Promise<Record<string, string>> {
+export async function getProviderSources(
+  document: vscode.TextDocument
+): Promise<Record<string, string>> {
   const providers: Record<string, string> = {};
 
   const modulePath = path.join(document.uri.path, '..');
   const mainFile = await findMainFileInDir(modulePath);
-  
+
   if (!mainFile) {
     return providers;
   }
-  
+
   const fileStream = fs.createReadStream(mainFile);
-  const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
-  
+  const rl = readline.createInterface({
+    input: fileStream,
+    crlfDelay: Infinity,
+  });
+
   let providerName = '';
   let providerSource = '';
 
@@ -51,11 +56,15 @@ export async function getProviderSources(document: vscode.TextDocument): Promise
   }
 
   fileStream.close();
-  
+
   return providers;
 }
 
-export function getAttribute(document: vscode.TextDocument, position: vscode.Position, attribute: string): string | undefined {
+export function getAttribute(
+  document: vscode.TextDocument,
+  position: vscode.Position,
+  attribute: string
+): string | undefined {
   while (position.line < document.lineCount) {
     position = position.with(position.line + 1);
     const line = document.lineAt(position.line).text;
@@ -64,7 +73,7 @@ export function getAttribute(document: vscode.TextDocument, position: vscode.Pos
     }
 
     const match = /([a-z0-9_]+)\s+=\s+(.*)/.exec(line);
-    
+
     if (match && match[1] === attribute) {
       if (match[2].startsWith('"')) {
         return match[2].slice(1, -1);

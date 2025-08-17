@@ -10,17 +10,22 @@ export function initializeDiagnosticCollection(): vscode.DiagnosticCollection {
   return diagnosticCollection;
 }
 
-export function checkForMissingLockFile(document: vscode.TextDocument): vscode.Diagnostic[] {
+export function checkForMissingLockFile(
+  document: vscode.TextDocument
+): vscode.Diagnostic[] {
   const diagnostics: vscode.Diagnostic[] = [];
-  
+
   // Only process Terraform files
   if (document.languageId !== 'terraform') {
     return diagnostics;
   }
 
-  const fullPath = document.fileName.split(path.sep).slice(0, -1).join(path.sep);
+  const fullPath = document.fileName
+    .split(path.sep)
+    .slice(0, -1)
+    .join(path.sep);
   const lockFilePath = path.join(fullPath, '.terraform.lock.hcl');
-  
+
   // If lock file exists, no diagnostics needed
   if (fs.existsSync(lockFilePath)) {
     return diagnostics;
@@ -31,7 +36,7 @@ export function checkForMissingLockFile(document: vscode.TextDocument): vscode.D
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    
+
     // Check for resource blocks
     const resourceMatch = RESOURCE_REGEX.exec(line);
     if (resourceMatch) {
@@ -39,7 +44,7 @@ export function checkForMissingLockFile(document: vscode.TextDocument): vscode.D
         new vscode.Position(i, 0),
         new vscode.Position(i, line.length)
       );
-      
+
       const diagnostic = new vscode.Diagnostic(
         range,
         'No .terraform.lock.hcl file found. Consider running terraform init.',
@@ -49,7 +54,7 @@ export function checkForMissingLockFile(document: vscode.TextDocument): vscode.D
       diagnostic.source = 'tfdocs';
       diagnostics.push(diagnostic);
     }
-    
+
     // Check for module blocks
     const moduleMatch = MODULE_REGEX.exec(line);
     if (moduleMatch) {
@@ -57,7 +62,7 @@ export function checkForMissingLockFile(document: vscode.TextDocument): vscode.D
         new vscode.Position(i, 0),
         new vscode.Position(i, line.length)
       );
-      
+
       const diagnostic = new vscode.Diagnostic(
         range,
         'No .terraform.lock.hcl file found. Consider running terraform init.',
@@ -79,7 +84,9 @@ export function updateDiagnostics(document: vscode.TextDocument): void {
   }
 }
 
-export function setupDiagnosticEventListeners(context: vscode.ExtensionContext): void {
+export function setupDiagnosticEventListeners(
+  context: vscode.ExtensionContext
+): void {
   // Update diagnostics for currently open documents
   if (vscode.window.activeTextEditor) {
     updateDiagnostics(vscode.window.activeTextEditor.document);
@@ -89,7 +96,7 @@ export function setupDiagnosticEventListeners(context: vscode.ExtensionContext):
   context.subscriptions.push(
     vscode.workspace.onDidOpenTextDocument(updateDiagnostics)
   );
-  
+
   context.subscriptions.push(
     vscode.workspace.onDidChangeTextDocument(event => {
       updateDiagnostics(event.document);
@@ -106,9 +113,11 @@ export function setupDiagnosticEventListeners(context: vscode.ExtensionContext):
   );
 
   // Watch for file system changes (like when lock file is created)
-  const fileWatcher = vscode.workspace.createFileSystemWatcher('**/.terraform.lock.hcl');
+  const fileWatcher = vscode.workspace.createFileSystemWatcher(
+    '**/.terraform.lock.hcl'
+  );
   context.subscriptions.push(fileWatcher);
-  
+
   fileWatcher.onDidCreate(() => {
     // Refresh diagnostics for all open Terraform files when lock file is created
     vscode.workspace.textDocuments.forEach(doc => {
@@ -117,7 +126,7 @@ export function setupDiagnosticEventListeners(context: vscode.ExtensionContext):
       }
     });
   });
-  
+
   fileWatcher.onDidDelete(() => {
     // Refresh diagnostics for all open Terraform files when lock file is deleted
     vscode.workspace.textDocuments.forEach(doc => {

@@ -1,5 +1,8 @@
 import * as vscode from 'vscode';
-import { initializeDiagnosticCollection, setupDiagnosticEventListeners } from './diagnostics';
+import {
+  initializeDiagnosticCollection,
+  setupDiagnosticEventListeners,
+} from './diagnostics';
 import { registerCodeActionProvider } from './code-actions';
 import { registerCommands } from './commands';
 
