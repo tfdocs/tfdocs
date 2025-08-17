@@ -11,6 +11,7 @@ import { waitForProcess, runTerraformInit } from './terraform-init';
 import { updateDiagnostics } from './diagnostics';
 import { stripAnsiCodes, convertAnsiToVSCode } from './text-formatter';
 import { toolName, toolCommand, colorFlag, enableColorizer } from './config';
+import { fetchFormattedResourceDocumentation } from './docs-fetcher';
 
 // Track if the init notification has already been shown this session
 let initNotificationShown = false;
@@ -355,9 +356,28 @@ export function registerCommands(context: vscode.ExtensionContext): void {
             hoverContent += `📋 **Type:** ${resourceTypeDisplay}\n`;
             hoverContent += `📦 **Provider:** \`${namespace}/${provider}\`\n`;
             hoverContent += `🏷️ **Version:** \`${providerVersion}\`\n\n`;
-            hoverContent += `---\n\n`;
-            hoverContent += `[📖 Open documentation](${action.url})\n\n`;
-            hoverContent += `*Ctrl+Click to open in browser*`;
+
+            // Try to fetch schema documentation
+            try {
+              console.debug('Attempting to fetch schema documentation for:', resourceType, 'in', fullPath);
+              const docContent = await fetchFormattedResourceDocumentation(
+                fullPath,
+                resourceKeyword,
+                resourceType
+              );
+              
+              console.debug('Schema documentation result:', docContent);
+              
+              if (docContent && docContent.trim()) {
+                console.debug('Formatted documentation content:', docContent);
+                hoverContent += `---\n\n**📚 TF Docs**\n\n${docContent}\n`;
+              } else {
+                console.debug('No schema documentation found');
+              }
+            } catch (error) {
+              // Silently fail and just show basic info
+              console.debug('Failed to fetch schema documentation:', error);
+            }
 
             return new vscode.Hover(
               new vscode.MarkdownString(hoverContent),

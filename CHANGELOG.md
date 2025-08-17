@@ -8,6 +8,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 New features:
 - **Enhanced Hover Documentation**: Hover tooltips now display provider information including namespace, version from lock file, and resource type details alongside documentation links
+- **Schema-based Documentation**: Added rich documentation display using Terraform/OpenTofu provider schema command, showing detailed argument and block information directly in hover tooltips
 
 Bug fixes:
 - **Fixed Notification Persistence**: Resolved issue where "Run terraform init" warning notification would remain visible during initialization process. Now replaced with progress notification that automatically dismisses when complete.

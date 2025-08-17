@@ -3,6 +3,7 @@ import * as path from 'path';
 import fs from 'fs';
 import { RESOURCE_REGEX, MODULE_REGEX } from './types';
 import { toolCommand } from './config';
+import { clearDocumentationCache, clearDiskCache } from './docs-fetcher';
 
 let diagnosticCollection: vscode.DiagnosticCollection;
 
@@ -119,7 +120,14 @@ export function setupDiagnosticEventListeners(
   );
   context.subscriptions.push(fileWatcher);
 
-  fileWatcher.onDidCreate(() => {
+  fileWatcher.onDidCreate((uri) => {
+    // Clear schema cache when lock file is created
+    clearDocumentationCache();
+    
+    // Clear disk cache for the specific directory
+    const workingDirectory = path.dirname(uri.fsPath);
+    clearDiskCache(workingDirectory);
+    
     // Refresh diagnostics for all open Terraform files when lock file is created
     vscode.workspace.textDocuments.forEach(doc => {
       if (doc.languageId === 'terraform') {
@@ -128,7 +136,23 @@ export function setupDiagnosticEventListeners(
     });
   });
 
-  fileWatcher.onDidDelete(() => {
+  fileWatcher.onDidChange((uri) => {
+    // Clear schema cache when lock file is changed
+    clearDocumentationCache();
+    
+    // Clear disk cache for the specific directory
+    const workingDirectory = path.dirname(uri.fsPath);
+    clearDiskCache(workingDirectory);
+  });
+
+  fileWatcher.onDidDelete((uri) => {
+    // Clear schema cache when lock file is deleted
+    clearDocumentationCache();
+    
+    // Clear disk cache for the specific directory
+    const workingDirectory = path.dirname(uri.fsPath);
+    clearDiskCache(workingDirectory);
+    
     // Refresh diagnostics for all open Terraform files when lock file is deleted
     vscode.workspace.textDocuments.forEach(doc => {
       if (doc.languageId === 'terraform') {
