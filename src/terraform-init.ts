@@ -26,7 +26,8 @@ export async function waitForProcess(
 
   while (!fs.existsSync(lockFile) && currentMilliseconds < maxMilliseconds) {
     await sleep(currentMilliseconds == 0 ? 1000 : 5000);
-    currentMilliseconds = currentMilliseconds === -1 ? 0 : currentMilliseconds + 5000;
+    currentMilliseconds =
+      currentMilliseconds === -1 ? 0 : currentMilliseconds + 5000;
 
     try {
       const newLines = fs.readFileSync(logFile, 'utf-8').split('\n');
@@ -43,16 +44,17 @@ export async function waitForProcess(
         for (const line of diff) {
           if (line.length > 0) {
             // Check if this line starts an error block (has Error: keyword)
-            const isErrorLine = line.startsWith('[ERROR]') || /Error:/i.test(line);
+            const isErrorLine =
+              line.startsWith('[ERROR]') || /Error:/i.test(line);
             const isErrorStart = isErrorLine && /Error:/i.test(line); // Only lines with "Error:" keyword
             const isBoxLine = line.includes('│');
-            
+
             // Add spacing between error blocks - when we see a new "Error:" after completing a previous error block
             if (isErrorStart && lastLineWasErrorBlock) {
               if (replaceLine) {
                 outputWindow.replace(
                   `Running ${toolCommand} init -input=false${colorFlag} in ${lockFilePath}\n` +
-                  lines.filter(line => line.length > 0).join('\n')
+                    lines.filter(line => line.length > 0).join('\n')
                 );
                 replaceLine = false;
               } else {
@@ -62,14 +64,14 @@ export async function waitForProcess(
               if (replaceLine) {
                 outputWindow.replace(
                   `Running ${toolCommand} init -input=false${colorFlag} in ${lockFilePath}\n` +
-                  lines.filter(line => line.length > 0).join('\n')
+                    lines.filter(line => line.length > 0).join('\n')
                 );
                 replaceLine = false;
               } else {
                 outputWindow.appendLine(line);
               }
             }
-            
+
             // Track if we're in an error block
             if (isErrorStart) {
               lastLineWasErrorBlock = true;
@@ -94,8 +96,9 @@ export async function waitForProcess(
       if (replaceLine) {
         outputWindow.replace(
           `Running ${toolCommand} init -input=false${colorFlag} in ${lockFilePath}\n` +
-          lines.filter(line => line.length > 0).join('\n') + `\n` +
-          `waiting for process to finish... (${currentMilliseconds / 1000}s)`
+            lines.filter(line => line.length > 0).join('\n') +
+            `\n` +
+            `waiting for process to finish... (${currentMilliseconds / 1000}s)`
         );
       } else {
         outputWindow.appendLine(
@@ -104,7 +107,6 @@ export async function waitForProcess(
         replaceLine = true;
       }
     }
-
   }
 
   outputWindow.appendLine('');
