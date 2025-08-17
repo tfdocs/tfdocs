@@ -73,8 +73,40 @@ async function getResourceData(
         `mkdir -p .terraform/logs && ${toolCommand} init -input=false -no-color > .terraform/logs/${logFilename}`,
         true
       );
-      await waitForProcess(logFile, outputWindow);
-      outputWindow.appendLine(`Finished initializing`);
+      
+      try {
+        await waitForProcess(logFile, outputWindow);
+        
+        // Check if initialization was successful by reading the log
+        let initSucceeded = false;
+        try {
+          const logContent = fs.readFileSync(logFile, 'utf-8');
+          if (
+            logContent.includes('Terraform has been successfully initialized') ||
+            logContent.includes('OpenTofu has been successfully initialized')
+          ) {
+            initSucceeded = true;
+          }
+        } catch (e) {
+          // Could not read log file
+        }
+        
+        if (!initSucceeded) {
+          return undefined; // Don't proceed with resource lookup if init failed
+        }
+        
+        outputWindow.appendLine(`Finished initializing`);
+        
+        // Check if the lock file was created after initialization
+        if (!fs.existsSync(lockFilePath)) {
+          return undefined; // Don't proceed with resource lookup if init failed
+        }
+      } catch (error) {
+        return undefined; // Don't proceed with resource lookup if init failed
+      }
+    } else {
+      // User cancelled the init, don't proceed with resource lookup
+      return undefined;
     }
   }
 

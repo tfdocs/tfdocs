@@ -12,35 +12,62 @@ export async function waitForProcess(
   outputWindow: vscode.OutputChannel
 ): Promise<void> {
   const lines: string[] = [];
-  let fileHasNewLines = true;
+  const maxMilliseconds = 30000;
+  let currentMilliseconds = -1;
+  let replaceLine = false;
 
-  // go 3 dirs up, then add /.terraform.lock.hcl
-  const lockFile =
-    logFile.split('/').slice(0, -3).join('/') + '/.terraform.lock.hcl';
+  const lockFilePath = logFile.split('/').slice(0, -3).join('/');
+  const lockFile = lockFilePath + '/.terraform.lock.hcl';
 
-  while (fileHasNewLines || !fs.existsSync(lockFile)) {
-    await sleep(fileHasNewLines ? 1000 : 5000);
-    fileHasNewLines = false;
+  while (!fs.existsSync(lockFile) && currentMilliseconds < maxMilliseconds) {
+    await sleep(currentMilliseconds == 0 ? 1000 : 5000);
+    currentMilliseconds = currentMilliseconds === -1 ? 0 : currentMilliseconds + 5000;
 
     try {
       const newLines = fs.readFileSync(logFile, 'utf-8').split('\n');
 
       if (newLines.length > lines.length) {
-        fileHasNewLines = true;
+        currentMilliseconds = -1;
 
-        const diff = newLines.slice(lines.length);
+        const diff = newLines.slice(lines.length).map(line => line.trim());
         lines.push(...diff);
 
         for (const line of diff) {
-          if (line.trim().length > 0) {
-            outputWindow.appendLine(line);
+          if (line.length > 0) {
+            if (replaceLine) {
+              outputWindow.replace(
+                `Running tofu init -input=false -no-color in ${lockFilePath}\n` +
+                lines.join('\n')
+              );
+              replaceLine = false;
+            } else {
+              outputWindow.appendLine(line);
+            }
           }
         }
       }
     } catch (e) {
       // logFile might not exist yet — ignore
     }
+
+    if (currentMilliseconds >= 5000) {
+      if (replaceLine) {
+        outputWindow.replace(
+          `Running tofu init -input=false -no-color in ${lockFilePath}\n` +
+          lines.filter(line => line.length > 0).join('\n') + `\n` +
+          `waiting for process to finish... (${currentMilliseconds / 1000}s)`
+        );
+      } else {
+        outputWindow.appendLine(
+          `waiting for process to finish... (${currentMilliseconds / 1000}s)`
+        );
+        replaceLine = true;
+      }
+    }
+
   }
+
+  outputWindow.appendLine('');
 }
 
 export async function runTerraformInit(
@@ -97,7 +124,7 @@ export async function runTerraformInit(
     outputWindow.appendLine(
       'Error: Initialization did not complete successfully. Check the log for details.'
     );
-    throw new Error('Terraform/OpenTofu init failed');
+    throw new Error(`${toolCommand} init failed`);
   }
 
   outputWindow.appendLine(`Finished initializing`);
