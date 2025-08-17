@@ -4,7 +4,7 @@ All notable changes to the "tfdocs" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
-## 1.2.0 (August 18, 2025)
+## 1.2.0 (August 17, 2025)
 
 New features:
 - **Enhanced Hover Documentation**: Hover tooltips now display provider information including namespace, version from lock file, and resource type details alongside documentation links
