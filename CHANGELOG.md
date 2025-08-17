@@ -4,6 +4,11 @@ All notable changes to the "tfdocs" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## 1.1.1
+
+Bug fixes:
+- **Fixed Notification Persistence**: Resolved issue where "Run terraform init" warning notification would remain visible during initialization process. Now replaced with progress notification that automatically dismisses when complete.
+
 ## 1.1.0 (August, 17, 2025)
 
 New features:
