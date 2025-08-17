@@ -23,7 +23,7 @@ New features:
 - Added automatic detection of missing initialization with prompt to run `terraform init`
 - Added support for OpenTofu via the `tfdocs.initTool` setting
 
-## 0.0.1
+## 0.0.1 (March 26, 2025)
 
 Initial release:
 - Support for looking up Terraform resource and data source documentation
