@@ -4,6 +4,14 @@ All notable changes to the "tfdocs" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## 1.3.0 (August 25, 2025)
+
+New features:
+- **Variable Link Navigation**: Added Ctrl+click functionality for variables within resource blocks to open documentation with variable-specific hash anchors
+- **Smart Hash Generation**: Variables now generate appropriate hash anchors based on nesting level (e.g., `#name` for root-level, `#auto_delete-2` for nested variables)
+- **Enhanced Variable Hover**: Hover tooltips for variables now display the exact hash anchor that will be used in the documentation URL
+- **Improved Variable Detection**: Better detection and highlighting of variable assignments in resource and data source blocks
+
 ## 1.2.0 (August 17, 2025)
 
 New features:

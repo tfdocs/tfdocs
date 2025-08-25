@@ -13,12 +13,188 @@ import { stripAnsiCodes, convertAnsiToVSCode } from './text-formatter';
 import { toolName, toolCommand, colorFlag, enableColorizer } from './config';
 import { fetchFormattedResourceDocumentation } from './docs-fetcher';
 
+// Regex to match variable assignments in resource blocks
+const VARIABLE_REGEX = /^\s*([a-z0-9_]+)\s*=\s*(.*)$/;
+
 // Track if the init notification has already been shown this session
 let initNotificationShown = false;
 
-async function getResourceData(
+// Cache for provider latest versions to avoid repeated API calls
+const providerLatestVersionCache = new Map<string, string>();
+
+// Helper function to fetch the latest version of a provider from Terraform registry
+async function getLatestProviderVersion(namespace: string, providerName: string): Promise<string | null> {
+  const cacheKey = `${namespace}/${providerName}`;
+  
+  // Check cache first
+  if (providerLatestVersionCache.has(cacheKey)) {
+    return providerLatestVersionCache.get(cacheKey) || null;
+  }
+
+  try {
+    const url = `https://registry.terraform.io/v2/providers/${namespace}/${providerName}?include=provider-versions`;
+    console.debug(`Fetching latest version for ${cacheKey} from: ${url}`);
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+      console.warn(`Failed to fetch provider versions for ${cacheKey}: ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json() as any;
+    
+    // Find the latest version from the included provider-versions
+    let latestVersion = null;
+    let latestDate = null;
+    
+    if (data.included && Array.isArray(data.included)) {
+      for (const versionInfo of data.included) {
+        if (versionInfo.type === 'provider-versions' && versionInfo.attributes) {
+          const publishedAt = new Date(versionInfo.attributes['published-at']);
+          const version = versionInfo.attributes.version;
+          
+          if (!latestDate || publishedAt > latestDate) {
+            latestDate = publishedAt;
+            latestVersion = version;
+          }
+        }
+      }
+    }
+    
+    if (latestVersion) {
+      console.debug(`Latest version for ${cacheKey}: ${latestVersion}`);
+      providerLatestVersionCache.set(cacheKey, latestVersion);
+      return latestVersion;
+    }
+    
+    console.warn(`No versions found for provider ${cacheKey}`);
+    return null;
+  } catch (error) {
+    console.warn(`Error fetching latest version for ${cacheKey}:`, error);
+    return null;
+  }
+}
+
+// Helper function to find the resource block context for a given position
+function findResourceContext(
   document: vscode.TextDocument,
   position: vscode.Position
+): { resourceMatch: RegExpExecArray; resourceStartLine: number } | null {
+  // Search backwards from current position to find the resource declaration
+  for (let lineNum = position.line; lineNum >= 0; lineNum--) {
+    const line = document.lineAt(lineNum).text;
+    const resourceMatch = RESOURCE_REGEX.exec(line);
+    
+    if (resourceMatch) {
+      // Found a resource declaration, now check if our position is within this resource block
+      let braceCount = 0;
+      let foundOpenBrace = false;
+      
+      for (let checkLine = lineNum; checkLine <= position.line && checkLine < document.lineCount; checkLine++) {
+        const checkText = document.lineAt(checkLine).text;
+        
+        // Count braces to determine if we're inside the resource block
+        for (const char of checkText) {
+          if (char === '{') {
+            braceCount++;
+            foundOpenBrace = true;
+          } else if (char === '}') {
+            braceCount--;
+            if (foundOpenBrace && braceCount === 0 && checkLine < position.line) {
+              // We've closed the resource block before reaching our position
+              return null;
+            }
+          }
+        }
+        
+        // If we've reached our position and we're inside the resource block
+        if (checkLine === position.line && foundOpenBrace && braceCount > 0) {
+          return { resourceMatch, resourceStartLine: lineNum };
+        }
+      }
+    }
+  }
+  
+  return null;
+}
+
+// Helper function to extract variable name from a line at a given position
+function getVariableAtPosition(
+  line: string,
+  position: vscode.Position
+): string | null {
+  const match = VARIABLE_REGEX.exec(line);
+  if (!match) {
+    return null;
+  }
+  
+  const variableName = match[1];
+  const assignmentStart = line.indexOf(variableName);
+  const assignmentEnd = assignmentStart + variableName.length;
+  
+  // Check if cursor is within the variable name
+  if (position.character >= assignmentStart && position.character <= assignmentEnd) {
+    return variableName;
+  }
+  
+  return null;
+}
+
+// Helper function to calculate the nesting level and generate the appropriate hash
+function generateVariableHash(
+  document: vscode.TextDocument,
+  position: vscode.Position,
+  variableName: string
+): string {
+  // Count the nesting level by counting opening braces from the resource start
+  const resourceContext = findResourceContext(document, position);
+  if (!resourceContext) {
+    return variableName;
+  }
+
+  let nestingLevel = 1;
+  let foundResourceBrace = false;
+  
+  // Start from the resource declaration line and count braces up to our position
+  for (let lineNum = resourceContext.resourceStartLine; lineNum <= position.line; lineNum++) {
+    const line = document.lineAt(lineNum).text;
+    
+    for (let charIndex = 0; charIndex < line.length; charIndex++) {
+      const char = line[charIndex];
+      
+      if (char === '{') {
+        if (!foundResourceBrace) {
+          foundResourceBrace = true; // This is the resource block opening brace
+        } else {
+          nestingLevel++; // This is a nested block
+        }
+      } else if (char === '}') {
+        if (foundResourceBrace && nestingLevel > 0) {
+          nestingLevel--;
+        }
+      }
+      
+      // If we've reached our position, stop counting
+      if (lineNum === position.line && charIndex >= position.character) {
+        break;
+      }
+    }
+  }
+  
+  // Generate hash based on nesting level
+  if (nestingLevel > 0) {
+    console.debug(`Variable ${variableName} at nesting level ${nestingLevel}, hash: ${variableName}-${nestingLevel}`);
+    return `${variableName}-${nestingLevel}`;
+  } else {
+    console.debug(`Variable ${variableName} at root level, hash: ${variableName}`);
+    return variableName;
+  }
+}
+
+async function getResourceData(
+  document: vscode.TextDocument,
+  position: vscode.Position,
+  variableName?: string
 ): Promise<Action | undefined> {
   const line = document.lineAt(position.line).text;
   const match = RESOURCE_REGEX.exec(line);
@@ -154,13 +330,33 @@ async function getResourceData(
   }
 
   initNotificationShown = true;
-  const url = `https://registry.terraform.io/providers/${namespace}/${match[2]}/${providerVersion}/docs/${resourceType}/${slug}`;
+  
+  // Determine if we should use 'latest' or the specific version number in the URL
+  let urlVersion = providerVersion;
+  if (providerVersion !== 'latest') {
+    // Check if the current version is actually the latest available
+    const latestVersion = await getLatestProviderVersion(namespace, match[2]);
+    if (latestVersion && providerVersion === latestVersion) {
+      // Use 'latest' in URL to avoid redirect issues with hash fragments
+      urlVersion = 'latest';
+      console.debug(`Provider version ${providerVersion} is latest, using 'latest' in URL`);
+    } else {
+      console.debug(`Provider version ${providerVersion} is not latest (latest: ${latestVersion}), using specific version in URL`);
+    }
+  }
+  
+  const baseUrl = `https://registry.terraform.io/providers/${namespace}/${match[2]}/${urlVersion}/docs/${resourceType}/${slug}`;
+  const url = variableName ? `${baseUrl}#${variableName}` : baseUrl;
 
   console.debug('Using provider version:', providerVersion);
+  console.debug('Using URL version:', urlVersion);
   console.debug('Using namespace:', namespace);
   console.debug('Using resource type:', resourceType);
   console.debug('Using slug:', slug);
   console.debug('Using URL:', url);
+  if (variableName) {
+    console.debug('Using variable hash:', variableName);
+  }
 
   return {
     type: 'url',
@@ -243,10 +439,39 @@ async function getLineData(
   }
 
   if (!lineData) {
+    lineData = await getVariableData(document, position);
+  }
+
+  if (!lineData) {
     return undefined;
   }
 
   return lineData;
+}
+
+async function getVariableData(
+  document: vscode.TextDocument,
+  position: vscode.Position
+): Promise<Action | undefined> {
+  const line = document.lineAt(position.line).text;
+  
+  // Check if we're on a variable assignment line
+  const variableName = getVariableAtPosition(line, position);
+  if (!variableName) {
+    return undefined;
+  }
+  
+  // Find the resource context for this variable
+  const resourceContext = findResourceContext(document, position);
+  if (!resourceContext) {
+    return undefined;
+  }
+  
+  // Generate the appropriate hash for this variable based on its nesting level
+  const variableHash = generateVariableHash(document, position, variableName);
+  
+  // Get the resource data with the variable hash
+  return await getResourceData(document, new vscode.Position(resourceContext.resourceStartLine, 0), variableHash);
 }
 
 export function registerCommands(context: vscode.ExtensionContext): void {
@@ -392,6 +617,35 @@ export function registerCommands(context: vscode.ExtensionContext): void {
         }
       }
 
+      // Check if we're hovering over a variable in a resource block
+      const variableName = getVariableAtPosition(line, position);
+      if (variableName) {
+        const resourceContext = findResourceContext(document, position);
+        if (resourceContext) {
+          const action = await getVariableData(document, position);
+          if (action && action.type === 'url') {
+            const variableHash = generateVariableHash(document, position, variableName);
+            let hoverContent = `**${variableName}**\n\n`;
+            hoverContent += `🔗 **Variable in resource block**\n`;
+            hoverContent += `📍 **Hash:** \`#${variableHash}\`\n\n`;
+            hoverContent += `*Ctrl+Click to open documentation with this variable highlighted*`;
+
+            const variableStart = line.indexOf(variableName);
+            const variableEnd = variableStart + variableName.length;
+
+            return new vscode.Hover(
+              new vscode.MarkdownString(hoverContent),
+              new vscode.Range(
+                position.line,
+                variableStart,
+                position.line,
+                variableEnd
+              )
+            );
+          }
+        }
+      }
+
       // Check if we're hovering over a module declaration
       const moduleMatch = MODULE_REGEX.exec(line);
       if (moduleMatch) {
@@ -492,6 +746,34 @@ export function registerCommands(context: vscode.ExtensionContext): void {
             }
           }
         }
+
+        // Check for variables in resource blocks
+        const variableMatch = VARIABLE_REGEX.exec(text);
+        if (variableMatch) {
+          const variableName = variableMatch[1];
+          const variableStart = text.indexOf(variableName);
+          
+          if (variableStart !== -1) {
+            const positionAtVariable = new vscode.Position(i, variableStart + Math.floor(variableName.length / 2));
+            const resourceContext = findResourceContext(document, positionAtVariable);
+            if (resourceContext) {
+              const action = await getVariableData(document, positionAtVariable);
+              if (action && action.type === 'url') {
+                const range = new vscode.Range(
+                  i,
+                  variableStart,
+                  i,
+                  variableStart + variableName.length
+                );
+                const link = new vscode.DocumentLink(
+                  range,
+                  vscode.Uri.parse(action.url)
+                );
+                links.push(link);
+              }
+            }
+          }
+        }
       }
 
       return links;
@@ -526,6 +808,23 @@ export function registerCommands(context: vscode.ExtensionContext): void {
             return new vscode.Location(
               document.uri,
               new vscode.Position(position.line, resourceTypeStart + 1)
+            );
+          }
+        }
+      }
+
+      // Check if we're hovering over a variable in a resource block
+      const variableName = getVariableAtPosition(line, position);
+      if (variableName) {
+        const resourceContext = findResourceContext(document, position);
+        if (resourceContext) {
+          const action = await getVariableData(document, position);
+          if (action && action.type === 'url') {
+            // Return a fake location to enable underlines
+            const variableStart = line.indexOf(variableName);
+            return new vscode.Location(
+              document.uri,
+              new vscode.Position(position.line, variableStart)
             );
           }
         }
