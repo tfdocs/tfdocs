@@ -24,7 +24,7 @@ jobs:
         run: npm run package
 
       - name: Login to VS Code Marketplace
-        run: echo "{\"publishers\":[{\"name\":\"tfdocs\",\"pat\":\"${{ secrets.VSCE_PAT }}\"}]}" > .vsce
+        run: echo "{\"publishers\":[{\"name\":\"tfdocs\",\"pat\":\"${{ secrets.VSCE_PAT }}\"}]}" > ~/.vsce
 
       - name: Publish to VS Code Marketplace
         run: npm run publish
