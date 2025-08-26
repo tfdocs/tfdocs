@@ -66,6 +66,21 @@
           "type": "boolean",
           "default": false,
           "description": "Enable color output in Terraform/OpenTofu commands (removes -no-color flag)"
+        },
+        "tfdocs.useConstraint": {
+          "type": "string",
+          "default": "high",
+          "enum": [
+            "low",
+            "middle",
+            "high"
+          ],
+          "enumDescriptions": [
+            "Use the lowest compatible version within the constraint",
+            "Use a middle/moderate version within the constraint",
+            "Use the highest/latest version within the constraint"
+          ],
+          "description": "Strategy for selecting which version to use from Terraform lock file constraints"
         }
       }
     }

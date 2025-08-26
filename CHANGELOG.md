@@ -4,9 +4,11 @@ All notable changes to the "tfdocs" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
-## 1.3.0 (August 25, 2025)
+## 1.3.0 (TBD)
 
 New features:
+- **Version Constraint Strategy**: Added `tfdocs.useConstraint` setting to control which version to use from Terraform lock file constraints with options: `low` (lowest version), `middle` (middle version), and `high` (default - uses lock file version directly)
+- **Smart Constraint Parsing**: Automatically parses constraint strings (e.g., `">= 1.6.0, >= 1.7.0"`) to extract available versions and applies the selected strategy
 - **Variable Link Navigation**: Added Ctrl+click functionality for variables within resource blocks to open documentation with variable-specific hash anchors
 - **Smart Hash Generation**: Variables now generate appropriate hash anchors based on nesting level (e.g., `#name` for root-level, `#auto_delete-2` for nested variables)
 - **Enhanced Variable Hover**: Hover tooltips for variables now display the exact hash anchor that will be used in the documentation URL

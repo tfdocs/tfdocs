@@ -7,6 +7,13 @@ A Visual Studio Code extension that helps you quickly look up Terraform resource
 - **Resource Documentation**: 
   - Quickly access official Terraform documentation for resources and data sources
   - Version-specific documentation based on your `.terraform.lock.hcl` file
+  - Configurable version constraint strategy to control which version is used from constraint ranges
+
+- **Version Constraint Strategy**:
+  - **`high` (default)**: Uses the exact version specified in the lock file
+  - **`low`**: Uses the lowest version from the constraint range (e.g., from `">= 1.6.0, >= 1.7.0"` uses `1.6.0`)
+  - **`middle`**: Uses the middle version from the constraint range
+  - Automatically parses constraint strings and applies your preferred strategy
 
 - **Module Navigation**: 
   - For local modules: Jump directly to the module's main configuration file
@@ -62,12 +69,14 @@ This extension activates automatically for Terraform files. While no configurati
 |---------|-------------|---------|
 | `tfdocs.initTool` | Specify which tool to use for initialization when `.terraform.lock.hcl` is missing (`terraform` or `tofu`) | `terraform` |
 | `tfdocs.enableColorizer` | Enable color output in Terraform/OpenTofu commands (removes -no-color flag and converts ANSI codes to readable text) | `false` |
+| `tfdocs.useConstraint` | Strategy for selecting which version to use from Terraform lock file constraints (`low`, `middle`, or `high`) | `uses lock file version directly` |
 
 You can add these to your settings.json:
 ```json
 {
     "tfdocs.initTool": "tofu",
-    "tfdocs.enableColorizer": true
+    "tfdocs.enableColorizer": true,
+    "tfdocs.useConstraint": "middle"
 }
 ```
 

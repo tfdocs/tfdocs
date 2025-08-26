@@ -10,7 +10,7 @@ import { Action, RESOURCE_REGEX, MODULE_REGEX } from './types';
 import { waitForProcess, runTerraformInit } from './terraform-init';
 import { updateDiagnostics } from './diagnostics';
 import { stripAnsiCodes, convertAnsiToVSCode } from './text-formatter';
-import { toolName, toolCommand, colorFlag, enableColorizer } from './config';
+import { toolName, toolCommand, colorFlag, enableColorizer, useConstraint } from './config';
 import { fetchFormattedResourceDocumentation } from './docs-fetcher';
 
 // Regex to match variable assignments in resource blocks
@@ -21,6 +21,192 @@ let initNotificationShown = false;
 
 // Cache for provider latest versions to avoid repeated API calls
 const providerLatestVersionCache = new Map<string, string>();
+
+// Helper function to parse semantic version into components
+interface SemanticVersion {
+  major: number;
+  minor: number;
+  patch: number;
+  prerelease?: string;
+  original: string;
+}
+
+function parseSemanticVersion(version: string): SemanticVersion | null {
+  const match = version.match(/^(\d+)\.(\d+)\.(\d+)(?:-(.+))?$/);
+  if (!match) {
+    return null;
+  }
+  
+  return {
+    major: parseInt(match[1], 10),
+    minor: parseInt(match[2], 10),
+    patch: parseInt(match[3], 10),
+    prerelease: match[4],
+    original: version,
+  };
+}
+
+// Helper function to compare semantic versions
+function compareVersions(a: SemanticVersion, b: SemanticVersion): number {
+  if (a.major !== b.major) return a.major - b.major;
+  if (a.minor !== b.minor) return a.minor - b.minor;
+  if (a.patch !== b.patch) return a.patch - b.patch;
+  
+  // Handle prerelease versions (consider them lower than non-prerelease)
+  if (a.prerelease && !b.prerelease) return -1;
+  if (!a.prerelease && b.prerelease) return 1;
+  if (a.prerelease && b.prerelease) {
+    return a.prerelease.localeCompare(b.prerelease);
+  }
+  
+  return 0;
+}
+
+// Helper function to check if a version satisfies a constraint
+function satisfiesConstraint(version: string, constraint: string): boolean {
+  const parsedVersion = parseSemanticVersion(version);
+  if (!parsedVersion) return false;
+  
+  // Handle different constraint formats
+  constraint = constraint.trim();
+  
+  // Exact version (=1.2.3 or 1.2.3)
+  if (constraint.startsWith('=') || /^\d+\.\d+\.\d+$/.test(constraint)) {
+    const targetVersion = constraint.startsWith('=') ? constraint.slice(1) : constraint;
+    return version === targetVersion;
+  }
+  
+  // Greater than or equal (>=1.2.3)
+  if (constraint.startsWith('>=')) {
+    const targetVersion = parseSemanticVersion(constraint.slice(2));
+    return targetVersion ? compareVersions(parsedVersion, targetVersion) >= 0 : false;
+  }
+  
+  // Greater than (>1.2.3)
+  if (constraint.startsWith('>') && !constraint.startsWith('>=')) {
+    const targetVersion = parseSemanticVersion(constraint.slice(1));
+    return targetVersion ? compareVersions(parsedVersion, targetVersion) > 0 : false;
+  }
+  
+  // Less than or equal (<=1.2.3)
+  if (constraint.startsWith('<=')) {
+    const targetVersion = parseSemanticVersion(constraint.slice(2));
+    return targetVersion ? compareVersions(parsedVersion, targetVersion) <= 0 : false;
+  }
+  
+  // Less than (<1.2.3)
+  if (constraint.startsWith('<') && !constraint.startsWith('<=')) {
+    const targetVersion = parseSemanticVersion(constraint.slice(1));
+    return targetVersion ? compareVersions(parsedVersion, targetVersion) < 0 : false;
+  }
+  
+  // Pessimistic constraint (~>1.2.3 means >= 1.2.3 and < 1.3.0)
+  if (constraint.startsWith('~>')) {
+    const targetVersion = parseSemanticVersion(constraint.slice(2));
+    if (!targetVersion) return false;
+    
+    const isMinimumSatisfied = compareVersions(parsedVersion, targetVersion) >= 0;
+    const isMaximumSatisfied = parsedVersion.major === targetVersion.major && 
+                              parsedVersion.minor === targetVersion.minor;
+    
+    return isMinimumSatisfied && isMaximumSatisfied;
+  }
+  
+  // Default: treat as exact match
+  return version === constraint;
+}
+
+// Helper function to parse constraint versions from lock file constraints
+function parseConstraintVersions(constraints: string): string[] {
+  console.debug(`Parsing constraint versions from: ${constraints}`);
+  
+  // Split on commas and process each constraint
+  const constraintParts = constraints.split(',').map(c => c.trim());
+  const versions: string[] = [];
+  
+  for (const constraint of constraintParts) {
+    // Remove constraint operators (>=, <=, ~>, >, <, =) and extract version
+    const versionMatch = constraint.match(/[>=<~]*\s*(\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?)/);
+    if (versionMatch) {
+      const version = versionMatch[1];
+      if (!versions.includes(version)) {
+        versions.push(version);
+      }
+    }
+  }
+  
+  console.debug(`Extracted versions from constraints: ${versions}`);
+  return versions;
+}
+
+// Helper function to resolve version based on constraint strategy
+function resolveVersionWithConstraint(
+  lockFileVersion: string,
+  constraints?: string
+): string {
+  // If no constraints, use the lock file version directly
+  if (!constraints) {
+    return lockFileVersion;
+  }
+  
+  // If strategy is 'high' (default), skip constraint logic and use lock file version
+  if (useConstraint === 'high') {
+    console.debug(`Using default strategy 'high', returning lock file version: ${lockFileVersion}`);
+    return lockFileVersion;
+  }
+  
+  console.debug(`Resolving version with constraint: ${constraints}, strategy: ${useConstraint}`);
+  
+  // Parse versions from constraints
+  const constraintVersions = parseConstraintVersions(constraints);
+  
+  // If no versions found in constraints, fall back to lock file version
+  if (constraintVersions.length === 0) {
+    console.debug('No versions found in constraints, using lock file version');
+    return lockFileVersion;
+  }
+  
+  // If only one version in constraints, return it
+  if (constraintVersions.length === 1) {
+    console.debug(`Only one version in constraints: ${constraintVersions[0]}`);
+    return constraintVersions[0];
+  }
+  
+  // Parse and sort versions
+  const parsedVersions = constraintVersions
+    .map(v => parseSemanticVersion(v))
+    .filter(v => v !== null) as SemanticVersion[];
+  
+  if (parsedVersions.length === 0) {
+    console.debug('No valid semantic versions found, using lock file version');
+    return lockFileVersion;
+  }
+  
+  // Sort versions in descending order (newest first)
+  parsedVersions.sort((a, b) => compareVersions(b, a));
+  
+  console.debug(`Sorted constraint versions:`, parsedVersions.map(v => v.original));
+  
+  switch (useConstraint) {
+    case 'low':
+      // Return the lowest (oldest) version from constraints
+      const lowestVersion = parsedVersions[parsedVersions.length - 1].original;
+      console.debug(`Selected lowest version: ${lowestVersion}`);
+      return lowestVersion;
+      
+    case 'middle':
+      // Return the middle version from constraints
+      const midIndex = Math.floor(parsedVersions.length / 2);
+      const middleVersion = parsedVersions[midIndex].original;
+      console.debug(`Selected middle version: ${middleVersion}`);
+      return middleVersion;
+      
+    default:
+      // Fallback to lock file version for any unknown strategy
+      console.debug(`Unknown strategy '${useConstraint}', using lock file version`);
+      return lockFileVersion;
+  }
+}
 
 // Helper function to fetch the latest version of a provider from Terraform registry
 async function getLatestProviderVersion(namespace: string, providerName: string): Promise<string | null> {
@@ -319,10 +505,19 @@ async function getResourceData(
 
   try {
     const terraformLockFile = fs.readFileSync(lockFilePath, 'utf-8');
-    providerVersion =
-      parseTerraformLockFile(terraformLockFile).providers.get(
-        `${namespace}/${match[2]}`
-      )?.version || 'latest';
+    const parsedLockFile = parseTerraformLockFile(terraformLockFile);
+    const providerInfo = parsedLockFile.providers.get(`${namespace}/${match[2]}`);
+    providerVersion = providerInfo?.version || 'latest';
+    
+    // Apply constraint strategy if constraints are available and strategy is not default
+    if (providerInfo?.constraints && providerVersion !== 'latest' && useConstraint !== 'high') {
+      console.debug(`Lock file version: ${providerVersion}, constraints: ${providerInfo.constraints}`);
+      providerVersion = resolveVersionWithConstraint(
+        providerVersion,
+        providerInfo.constraints
+      );
+      console.debug(`Resolved version with constraint strategy '${useConstraint}': ${providerVersion}`);
+    }
   } catch (error) {
     console.warn('Unable to read .terraform.lock.hcl file:', lockFilePath);
     console.warn('Using latest version for resource lookup');
@@ -570,6 +765,14 @@ export function registerCommands(context: vscode.ExtensionContext): void {
                 const parsedLockFile = parseTerraformLockFile(terraformLockFile);
                 const providerInfo = parsedLockFile.providers.get(`${namespace}/${provider}`);
                 providerVersion = providerInfo?.version || 'latest';
+                
+                // Apply constraint strategy if constraints are available and strategy is not default
+                if (providerInfo?.constraints && providerVersion !== 'latest' && useConstraint !== 'high') {
+                  providerVersion = resolveVersionWithConstraint(
+                    providerVersion,
+                    providerInfo.constraints
+                  );
+                }
               }
             } catch (error) {
               // Use latest if we can't read the lock file
