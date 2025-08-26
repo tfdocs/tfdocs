@@ -4,7 +4,7 @@ All notable changes to the "tfdocs" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
-## 1.3.0 (TBD)
+## 1.3.0 (August 25, 2025)
 
 New features:
 - **Version Constraint Strategy**: Added `tfdocs.useConstraint` setting to control which version to use from Terraform lock file constraints with options: `low` (lowest version), `middle` (middle version), and `high` (default - uses lock file version directly)
