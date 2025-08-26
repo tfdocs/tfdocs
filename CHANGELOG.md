@@ -14,6 +14,9 @@ New features:
 - **Enhanced Variable Hover**: Hover tooltips for variables now display the exact hash anchor that will be used in the documentation URL
 - **Improved Variable Detection**: Better detection and highlighting of variable assignments in resource and data source blocks
 
+Bug fixes:
+- **Fixed Configuration Reloading**: Configuration values are now always reloaded to ensure settings changes take effect immediately without requiring extension restart
+
 ## 1.2.0 (August 17, 2025)
 
 New features:

@@ -142,7 +142,7 @@ export async function runTerraformInit(
     `mkdir -p .terraform/logs && ${toolCommand} init -input=false${colorFlag} > .terraform/logs/${logFilename}`,
     true
   );
-  await waitForProcess(logFile, outputWindow, enableColorizer, toolCommand);
+  await waitForProcess(logFile, outputWindow, enableColorizer(), toolCommand());
 
   let initSucceeded = false;
   try {

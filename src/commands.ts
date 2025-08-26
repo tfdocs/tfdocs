@@ -150,12 +150,12 @@ function resolveVersionWithConstraint(
   }
   
   // If strategy is 'high' (default), skip constraint logic and use lock file version
-  if (useConstraint === 'high') {
+  if (useConstraint() === 'high') {
     console.debug(`Using default strategy 'high', returning lock file version: ${lockFileVersion}`);
     return lockFileVersion;
   }
-  
-  console.debug(`Resolving version with constraint: ${constraints}, strategy: ${useConstraint}`);
+
+  console.debug(`Resolving version with constraint: ${constraints}, strategy: ${useConstraint()}`);
   
   // Parse versions from constraints
   const constraintVersions = parseConstraintVersions(constraints);
@@ -186,8 +186,8 @@ function resolveVersionWithConstraint(
   parsedVersions.sort((a, b) => compareVersions(b, a));
   
   console.debug(`Sorted constraint versions:`, parsedVersions.map(v => v.original));
-  
-  switch (useConstraint) {
+
+  switch (useConstraint()) {
     case 'low':
       // Return the lowest (oldest) version from constraints
       const lowestVersion = parsedVersions[parsedVersions.length - 1].original;
@@ -203,7 +203,7 @@ function resolveVersionWithConstraint(
       
     default:
       // Fallback to lock file version for any unknown strategy
-      console.debug(`Unknown strategy '${useConstraint}', using lock file version`);
+      console.debug(`Unknown strategy '${useConstraint()}', using lock file version`);
       return lockFileVersion;
   }
 }
@@ -455,8 +455,8 @@ async function getResourceData(
               await waitForProcess(
                 logFile,
                 outputWindow,
-                enableColorizer,
-                toolCommand
+                enableColorizer(),
+                toolCommand()
               );
 
               // Check if initialization was successful by reading the log
@@ -510,7 +510,7 @@ async function getResourceData(
     providerVersion = providerInfo?.version || 'latest';
     
     // Apply constraint strategy if constraints are available and strategy is not default
-    if (providerInfo?.constraints && providerVersion !== 'latest' && useConstraint !== 'high') {
+    if (providerInfo?.constraints && providerVersion !== 'latest' && useConstraint() !== 'high') {
       console.debug(`Lock file version: ${providerVersion}, constraints: ${providerInfo.constraints}`);
       providerVersion = resolveVersionWithConstraint(
         providerVersion,
@@ -767,7 +767,7 @@ export function registerCommands(context: vscode.ExtensionContext): void {
                 providerVersion = providerInfo?.version || 'latest';
                 
                 // Apply constraint strategy if constraints are available and strategy is not default
-                if (providerInfo?.constraints && providerVersion !== 'latest' && useConstraint !== 'high') {
+                if (providerInfo?.constraints && providerVersion !== 'latest' && useConstraint() !== 'high') {
                   providerVersion = resolveVersionWithConstraint(
                     providerVersion,
                     providerInfo.constraints
