@@ -125,7 +125,7 @@ export async function runTerraformInit(
   const outputWindow = vscode.window.createOutputChannel(`${toolName} Init`);
   outputWindow.show();
   outputWindow.appendLine(
-    `Running ${toolCommand} init -input=false${colorFlag} in ${fullPath}`
+    `Running ${toolCommand} init -input=false${colorFlag()} in ${fullPath}`
   );
 
   const terminal = vscode.window.createTerminal({
@@ -139,7 +139,7 @@ export async function runTerraformInit(
   execSync(`rm ${logFile} || true`);
 
   terminal.sendText(
-    `mkdir -p .terraform/logs && ${toolCommand} init -input=false${colorFlag} > .terraform/logs/${logFilename}`,
+    `mkdir -p .terraform/logs && ${toolCommand} init -input=false${colorFlag()} > .terraform/logs/${logFilename}`,
     true
   );
   await waitForProcess(logFile, outputWindow, enableColorizer(), toolCommand());

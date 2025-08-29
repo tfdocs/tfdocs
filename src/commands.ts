@@ -412,40 +412,40 @@ async function getResourceData(
 
     if (!initNotificationShown) {
       const action = await vscode.window.showWarningMessage(
-        `No .terraform.lock.hcl file found. This might indicate that ${toolName} has not been initialized.`,
-        `Run ${toolCommand} init`,
+        `No .terraform.lock.hcl file found. This might indicate that ${toolName()} has not been initialized.`,
+        `Run ${toolCommand()} init`,
         'Cancel'
       );
 
-      if (action === `Run ${toolCommand} init`) {
+      if (action === `Run ${toolCommand()} init`) {
         // Show progress notification that will replace the warning
         return vscode.window.withProgress(
           {
             location: vscode.ProgressLocation.Notification,
-            title: `Running ${toolCommand} init`,
+            title: `Running ${toolCommand()} init`,
             cancellable: false,
           },
           async progress => {
             const outputWindow = vscode.window.createOutputChannel(
-              `${toolName} Init`
+              `${toolName()} Init`
             );
             outputWindow.show();
             outputWindow.appendLine(
-              `Running ${toolCommand} init -input=false${colorFlag} in ${fullPath}`
+              `Running ${toolCommand()} init -input=false${colorFlag()} in ${fullPath}`
             );
 
             const terminal = vscode.window.createTerminal({
-              name: `${toolName} Init`,
+              name: `${toolName()} Init`,
               cwd: fullPath,
               hideFromUser: true,
             });
 
-            const logFilename = `${toolCommand}-init.log`;
+            const logFilename = `${toolCommand()}-init.log`;
             const logFile = `${fullPath}/.terraform/logs/${logFilename}`;
             execSync(`rm ${logFile} || true`);
 
             terminal.sendText(
-              `mkdir -p .terraform/logs && ${toolCommand} init -input=false${colorFlag} > .terraform/logs/${logFilename}`,
+              `mkdir -p .terraform/logs && ${toolCommand()} init -input=false${colorFlag()} > .terraform/logs/${logFilename}`,
               true
             );
 
@@ -516,7 +516,7 @@ async function getResourceData(
         providerVersion,
         providerInfo.constraints
       );
-      console.debug(`Resolved version with constraint strategy '${useConstraint}': ${providerVersion}`);
+      console.debug(`Resolved version with constraint strategy '${useConstraint()}': ${providerVersion}`);
     }
   } catch (error) {
     console.warn('Unable to read .terraform.lock.hcl file:', lockFilePath);
