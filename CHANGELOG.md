@@ -4,6 +4,11 @@ All notable changes to the "tfdocs" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## 1.3.1 (August 28, 2025)
+
+Bug fixes:
+- **Fixed Invalid Configuration String**: Configuration strings were incorrectly displayed as functions instead of showing their returned values.
+
 ## 1.3.0 (August 25, 2025)
 
 New features:
